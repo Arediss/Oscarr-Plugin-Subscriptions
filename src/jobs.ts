@@ -38,6 +38,15 @@ export async function runSubscriptionCheck(ctx: PluginContext, store: Subscripti
 
       if (!sub.expiredAt && expiresAt <= now) {
         try {
+          const target = await ctx.getUser(userId);
+          if (target?.role === 'admin') {
+            // The term is over, but the role stays: demoting the last admin locks the instance.
+            sub.expiredAt = now.toISOString();
+            sub.updatedAt = now.toISOString();
+            ctx.log.warn(`[Subscription] user ${userId} is an administrator; subscription expired but the role was left untouched`);
+            expired++;
+            continue;
+          }
           await ctx.setUserRole(userId, settings.downgradeRoleName);
           if (settings.notifyOnExpiration) {
             await ctx.sendUserNotification(userId, buildExpiredPayload(tierName, settings.downgradeRoleName));

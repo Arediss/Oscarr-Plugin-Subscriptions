@@ -149,6 +149,16 @@ export async function registerSubscriptionRoutes(
       const start = startedAt ? new Date(startedAt) : new Date();
       if (Number.isNaN(start.getTime())) return reply.status(400).send({ error: 'Invalid startedAt' });
 
+      // An administrator's role is not this plugin's to take: replacing it strips the access the
+      // account was granted for, and an instance left with no admin has no way back through the
+      // interface at all.
+      const target = await ctx.getUser(userId);
+      if (target?.role === 'admin') {
+        return reply.status(400).send({
+          error: 'This account is an administrator. Assigning a tier would replace that role and remove its access.',
+        });
+      }
+
       // Set the role first — if the role no longer exists in core, this throws
       // before we persist the subscription, so state stays consistent.
       try {
